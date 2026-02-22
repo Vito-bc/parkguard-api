@@ -4,6 +4,7 @@ from math import cos, radians
 import requests
 from fastapi import FastAPI, Query
 
+from rule_engine import evaluate_recurring_window
 from schemas import HealthResponse, ParkingRule, ParkingStatusResponse
 
 app = FastAPI(
@@ -62,12 +63,27 @@ def get_parking_status(
 
         is_cleaning = "clean" in rule_type or "alternate side" in description.lower()
         if is_cleaning:
-            window = f"{reg.get('time_from', '06:00')} - {reg.get('time_to', '09:00')}"
+            start_time = reg.get("time_from", "06:00")
+            end_time = reg.get("time_to", "09:00")
+            days_spec = reg.get("days", "Mon-Fri")
+            window = f"{start_time} - {end_time}"
 
-            # Placeholder schedule logic for MVP demo.
-            next_cleaning = current_time + timedelta(days=1)
+            evaluation = evaluate_recurring_window(
+                now=current_time,
+                days_spec=days_spec,
+                start_time=start_time,
+                end_time=end_time,
+            )
+            next_cleaning = evaluation.next_start
             next_cleaning_iso = next_cleaning.isoformat()
-            time_left_str = _format_duration(next_cleaning - current_time)
+            time_left_str = _format_duration(evaluation.countdown)
+            can_park_now = not evaluation.active_now
+            severity = "high" if evaluation.active_now else "medium"
+            reason = (
+                f"Street cleaning active now (ends in {time_left_str})"
+                if evaluation.active_now
+                else f"Street cleaning starts in {time_left_str}"
+            )
 
             rules.append(
                 ParkingRule(
@@ -76,7 +92,10 @@ def get_parking_status(
                     next_cleaning=next_cleaning,
                     window=window,
                     time_left=time_left_str,
-                    valid=valid,
+                    active_now=evaluation.active_now,
+                    severity=severity,
+                    valid=can_park_now,
+                    reason=reason,
                     source="NYC DOT Sweeping Schedule",
                 )
             )
@@ -88,6 +107,7 @@ def get_parking_status(
                 type=rule_type,
                 description=description,
                 fine=fine,
+                severity="high" if fine else "low",
                 valid=valid,
                 source="NYC DOT Sign",
             )
@@ -116,6 +136,8 @@ def get_parking_status(
                 rate="3.50 USD/hour",
                 max_time=meter.get("max_time", "2 hours"),
                 hours=meter.get("hours", "08:00 - 20:00 Mon-Fri"),
+                active_now=meter_valid,
+                severity="low" if meter_valid else "info",
                 valid=meter_valid,
                 reason=None if meter_valid else "Inactive or outside operating hours",
                 source="NYC Parking Meters",
@@ -123,14 +145,23 @@ def get_parking_status(
         )
 
     if not rules:
+        fallback_eval = evaluate_recurring_window(
+            now=current_time,
+            days_spec="Mon-Fri",
+            start_time="06:00",
+            end_time="09:00",
+        )
         rules = [
             ParkingRule(
                 type="street_cleaning",
                 description="Alternate Side Parking (demo fallback)",
-                next_cleaning=current_time + timedelta(days=1),
+                next_cleaning=fallback_eval.next_start,
                 window="06:00 - 09:00",
-                time_left="24h 0m",
-                valid=True,
+                time_left=_format_duration(fallback_eval.countdown),
+                active_now=fallback_eval.active_now,
+                severity="medium",
+                valid=not fallback_eval.active_now,
+                reason="Demo fallback rule",
                 source="ParkGuard Demo",
             )
         ]
@@ -138,8 +169,14 @@ def get_parking_status(
         time_left_str = rules[0].time_left
 
     warning = None
-    if time_left_str:
-        warning = f"Cannot park here - street cleaning in {time_left_str}"
+    street_cleaning_rule = next(
+        (rule for rule in rules if rule.type == "street_cleaning"),
+        None,
+    )
+    if street_cleaning_rule and street_cleaning_rule.active_now:
+        warning = street_cleaning_rule.reason or "Cannot park here - street cleaning active"
+    elif time_left_str:
+        warning = f"Caution: street cleaning starts in {time_left_str}"
 
     return ParkingStatusResponse(
         location={

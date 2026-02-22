@@ -26,6 +26,8 @@ class ParkingRule(BaseModel):
     rate: Optional[str] = None
     max_time: Optional[str] = None
     hours: Optional[str] = None
+    active_now: Optional[bool] = None
+    severity: Optional[str] = None
     valid: bool
     reason: Optional[str] = None
     source: str

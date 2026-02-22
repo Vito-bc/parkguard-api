@@ -8,6 +8,7 @@ Real-time NYC parking rules API prototype for connected vehicles (OTA-style inte
 - Combines NYC Open Data parking regulations and parking meter data
 - Produces vehicle-friendly JSON (`rules`, `warning`, `confidence`)
 - Uses typed response models (Pydantic) for stable integration contracts
+- Includes recurring time-window rule engine for street cleaning countdowns
 - Includes demo fallback response if upstream datasets are unavailable
 
 ## API Endpoint
@@ -51,6 +52,12 @@ uvicorn main:app --reload
 Swagger UI:
 
 - `http://127.0.0.1:8000/docs`
+
+Run tests:
+
+```bash
+python -m unittest discover -s tests -v
+```
 
 ## Project direction
 
