@@ -14,7 +14,7 @@ Real-time NYC parking rules API prototype for connected vehicles (OTA-style inte
 
 ## API Endpoint
 
-`GET /parking-status?lat=40.7580&lon=-73.9855&radius=50&vehicle_type=passenger&commercial_plate=false`
+`GET /parking-status?lat=40.7580&lon=-73.9855&radius=50&vehicle_type=passenger&commercial_plate=false&agency_affiliation=none`
 
 Example response (shape):
 
@@ -29,7 +29,8 @@ Example response (shape):
   },
   "vehicle_profile": {
     "vehicle_type": "passenger",
-    "commercial_plate": false
+    "commercial_plate": false,
+    "agency_affiliation": "none"
   },
   "rules": [
     {
@@ -40,16 +41,25 @@ Example response (shape):
       "time_left": "24h 0m",
       "valid": true,
       "source": "NYC DOT Sweeping Schedule"
+    },
+    {
+      "type": "hydrant_proximity",
+      "description": "Fire hydrant clearance rule",
+      "distance_ft": 12.0,
+      "threshold_ft": 15.0,
+      "valid": false,
+      "reason": "Too close to hydrant: 12.0 ft (minimum 15 ft).",
+      "source": "ParkGuard Hydrant Proximity (demo scaffold)"
     }
   ],
   "parking_decision": {
-    "status": "caution",
-    "risk_score": 60,
-    "primary_reason": "Street cleaning starts in 24h 0m",
-    "recommended_action": "Parking may be allowed now, but review restrictions."
+    "status": "blocked",
+    "risk_score": 97,
+    "primary_reason": "Too close to hydrant: 12.0 ft (minimum 15 ft).",
+    "recommended_action": "Do not park here. Move to another spot."
   },
   "confidence": 0.98,
-  "warning": "Caution: street cleaning starts in 24h 0m"
+  "warning": "Too close to hydrant: 12.0 ft (minimum 15 ft)."
 }
 ```
 
@@ -81,5 +91,6 @@ Status: MVP in progress
 
 - Truck / loading-only restrictions (vehicle profile support added; dataset-specific parsing needs refinement)
 - Taxi / FHV-only curb zones (vehicle profile support added; sign parsing is heuristic for MVP)
-- Hydrant proximity rule (high-priority, high-ticket-risk alert)
+- Hydrant proximity rule (demo scaffold via `hydrant_distance_ft`; wire real hydrant dataset next)
+- Fire / official-only curb zones (heuristic sign parsing + agency profile support)
 - Jurisdiction-specific ticket fine catalog (e.g., NYC fine estimates by violation type)

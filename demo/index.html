@@ -75,7 +75,7 @@
     }
     .controls {
       display: grid;
-      grid-template-columns: repeat(6, 1fr);
+      grid-template-columns: repeat(8, 1fr);
       gap: 10px;
     }
     .controls input {
@@ -252,10 +252,18 @@
             <option value="taxi">Taxi</option>
             <option value="fhv">FHV (Uber/Lyft)</option>
           </select>
+          <select id="agencyAffiliation" aria-label="Agency affiliation">
+            <option value="none" selected>No agency</option>
+            <option value="police">Police</option>
+            <option value="fire">Fire</option>
+            <option value="city">City</option>
+            <option value="school">School</option>
+          </select>
           <label class="toggle" for="commercialPlate">
             <input id="commercialPlate" type="checkbox">
             Commercial plate
           </label>
+          <input id="hydrantDistance" type="number" step="0.1" min="0" max="200" placeholder="Hydrant ft (optional)">
           <button id="checkBtn" type="button">Check Spot</button>
         </div>
 
@@ -289,6 +297,7 @@
           <div class="rule-type">Vehicle Profile</div>
           <div class="kv"><span class="label">Type</span><span class="value" id="vehType">-</span></div>
           <div class="kv"><span class="label">Commercial plate</span><span class="value" id="vehCommercial">-</span></div>
+          <div class="kv"><span class="label">Agency</span><span class="value" id="vehAgency">-</span></div>
         </section>
 
         <section class="card">
@@ -365,6 +374,7 @@
       el("locTime").textContent = loc.timestamp ? new Date(loc.timestamp).toLocaleString() : "-";
       el("vehType").textContent = vp.vehicle_type || "-";
       el("vehCommercial").textContent = vp.commercial_plate == null ? "-" : (vp.commercial_plate ? "yes" : "no");
+      el("vehAgency").textContent = vp.agency_affiliation || "-";
 
       const rules = Array.isArray(data.rules) ? data.rules : [];
       el("rulesList").innerHTML = rules.length ? rules.map(ruleHtml).join("") : `<div class="note">No rules returned.</div>`;
@@ -376,11 +386,20 @@
       const radius = el("radius").value || "50";
       const vehicleType = el("vehicleType").value || "passenger";
       const commercialPlate = el("commercialPlate").checked ? "true" : "false";
+      const agencyAffiliation = el("agencyAffiliation").value || "none";
+      const hydrantDistance = el("hydrantDistance").value.trim();
       el("reasonText").textContent = "Requesting parking decision...";
       try {
-        const resp = await fetch(
-          `/parking-status?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&radius=${encodeURIComponent(radius)}&vehicle_type=${encodeURIComponent(vehicleType)}&commercial_plate=${encodeURIComponent(commercialPlate)}`
-        );
+        const params = new URLSearchParams({
+          lat,
+          lon,
+          radius,
+          vehicle_type: vehicleType,
+          commercial_plate: commercialPlate,
+          agency_affiliation: agencyAffiliation
+        });
+        if (hydrantDistance) params.set("hydrant_distance_ft", hydrantDistance);
+        const resp = await fetch(`/parking-status?${params.toString()}`);
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         const data = await resp.json();
         render(data);
@@ -401,7 +420,9 @@
 
     el("checkBtn").addEventListener("click", fetchStatus);
     el("vehicleType").addEventListener("change", fetchStatus);
+    el("agencyAffiliation").addEventListener("change", fetchStatus);
     el("commercialPlate").addEventListener("change", fetchStatus);
+    el("hydrantDistance").addEventListener("change", fetchStatus);
     updateClock();
     setInterval(updateClock, 1000);
     fetchStatus();

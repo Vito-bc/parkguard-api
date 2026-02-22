@@ -57,6 +57,11 @@ def _derive_parking_decision(rules: list[ParkingRule]) -> dict:
             risk_score = max(risk_score, 93)
             continue
 
+        if rule.type in {"fire_zone", "emergency_access", "official_vehicle_only", "hydrant_proximity"} and not rule.valid:
+            blocked_reasons.append(rule.reason or rule.description)
+            risk_score = max(risk_score, 97 if rule.type == "hydrant_proximity" else 94)
+            continue
+
         if rule.type in {"no_standing", "no parking"} and not rule.valid:
             blocked_reasons.append(rule.description)
             risk_score = max(risk_score, 90)
@@ -119,6 +124,17 @@ def get_parking_status(
         description="Vehicle class",
     ),
     commercial_plate: bool = Query(False, description="Commercial plate status"),
+    agency_affiliation: str = Query(
+        "none",
+        pattern="^(none|police|fire|city|school)$",
+        description="Agency affiliation",
+    ),
+    hydrant_distance_ft: float | None = Query(
+        None,
+        ge=0,
+        le=200,
+        description="Optional nearest hydrant distance override for demo/scaffold",
+    ),
 ) -> ParkingStatusResponse:
     current_time = datetime.now(UTC)
 
@@ -252,6 +268,71 @@ def get_parking_status(
             )
             continue
 
+        is_fire_zone = any(
+            token in description_lower
+            for token in ("fire zone", "fire lane", "fire department", "fdny", "emergency access")
+        )
+        if is_fire_zone:
+            eligible_agencies = ["fire"]
+            allowed = agency_affiliation == "fire"
+            rules.append(
+                ParkingRule(
+                    type="fire_zone",
+                    description=description,
+                    severity="high",
+                    eligible_vehicle_types=eligible_agencies,
+                    valid=allowed,
+                    reason=(
+                        "Fire/emergency zone reserved for authorized fire access."
+                        if not allowed
+                        else "Authorized fire-agency vehicle profile."
+                    ),
+                    source="NYC DOT Sign",
+                )
+            )
+            continue
+
+        is_official_zone = any(
+            token in description_lower
+            for token in (
+                "police only",
+                "nypd",
+                "department vehicles only",
+                "official vehicles only",
+                "authorized vehicles only",
+                "government vehicles only",
+                "agency vehicles only",
+            )
+        )
+        if is_official_zone:
+            eligible_agencies: list[str] = []
+            if any(token in description_lower for token in ("police", "nypd")):
+                eligible_agencies = ["police"]
+            elif any(token in description_lower for token in ("fire", "fdny")):
+                eligible_agencies = ["fire"]
+            elif "school" in description_lower:
+                eligible_agencies = ["school"]
+            else:
+                eligible_agencies = ["city", "police", "fire", "school"]
+
+            allowed = agency_affiliation in eligible_agencies
+            rules.append(
+                ParkingRule(
+                    type="official_vehicle_only",
+                    description=description,
+                    severity="high" if not allowed else "low",
+                    eligible_vehicle_types=eligible_agencies,
+                    valid=allowed,
+                    reason=(
+                        f"Reserved for {', '.join(eligible_agencies)} vehicles."
+                        if not allowed
+                        else "Authorized agency profile matches reserved spot."
+                    ),
+                    source="NYC DOT Sign",
+                )
+            )
+            continue
+
         fine = 65 if ("standing" in rule_type or "parking" in rule_type) else 0
         rules.append(
             ParkingRule(
@@ -319,6 +400,26 @@ def get_parking_status(
         next_cleaning_iso = rules[0].next_cleaning.isoformat() if rules[0].next_cleaning else None
         time_left_str = rules[0].time_left
 
+    if hydrant_distance_ft is not None:
+        hydrant_threshold_ft = 15.0
+        hydrant_blocked = hydrant_distance_ft < hydrant_threshold_ft
+        rules.append(
+            ParkingRule(
+                type="hydrant_proximity",
+                description="Fire hydrant clearance rule",
+                distance_ft=round(hydrant_distance_ft, 1),
+                threshold_ft=hydrant_threshold_ft,
+                severity="high" if hydrant_blocked else "low",
+                valid=not hydrant_blocked,
+                reason=(
+                    f"Too close to hydrant: {hydrant_distance_ft:.1f} ft (minimum {hydrant_threshold_ft:.0f} ft)."
+                    if hydrant_blocked
+                    else f"Hydrant clearance ok: {hydrant_distance_ft:.1f} ft from nearest hydrant."
+                ),
+                source="ParkGuard Hydrant Proximity (demo scaffold)",
+            )
+        )
+
     decision = _derive_parking_decision(rules)
     warning = None
     street_cleaning_rule = next(
@@ -343,6 +444,7 @@ def get_parking_status(
         vehicle_profile={
             "vehicle_type": vehicle_type,
             "commercial_plate": commercial_plate,
+            "agency_affiliation": agency_affiliation,
         },
         rules=rules,
         parking_decision=decision,

@@ -19,6 +19,7 @@ class LocationInfo(BaseModel):
 class VehicleProfile(BaseModel):
     vehicle_type: str = Field(..., description="passenger | truck | taxi | fhv")
     commercial_plate: bool
+    agency_affiliation: str = Field(..., description="none | police | fire | city | school")
 
 
 class ParkingRule(BaseModel):
@@ -31,6 +32,9 @@ class ParkingRule(BaseModel):
     rate: Optional[str] = None
     max_time: Optional[str] = None
     hours: Optional[str] = None
+    distance_ft: Optional[float] = None
+    threshold_ft: Optional[float] = None
+    eligible_vehicle_types: Optional[list[str]] = None
     active_now: Optional[bool] = None
     severity: Optional[str] = None
     valid: bool
