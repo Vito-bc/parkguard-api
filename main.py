@@ -6,6 +6,7 @@ import requests
 from fastapi import FastAPI, Query
 from fastapi.responses import FileResponse, HTMLResponse, Response
 
+from hydrant_lookup import find_nearest_hydrant_distance_ft
 from proximity_engine import evaluate_hydrant_clearance
 from rule_engine import evaluate_recurring_window
 from schemas import HealthResponse, ParkingRule, ParkingStatusResponse
@@ -401,8 +402,19 @@ def get_parking_status(
         next_cleaning_iso = rules[0].next_cleaning.isoformat() if rules[0].next_cleaning else None
         time_left_str = rules[0].time_left
 
-    if hydrant_distance_ft is not None:
-        hydrant_eval = evaluate_hydrant_clearance(hydrant_distance_ft, threshold_ft=15.0)
+    resolved_hydrant_distance_ft = hydrant_distance_ft
+    hydrant_source = "ParkGuard Hydrant Proximity (demo scaffold)"
+    if resolved_hydrant_distance_ft is None:
+        resolved_hydrant_distance_ft, hydrant_dataset_id = find_nearest_hydrant_distance_ft(
+            lat=lat,
+            lon=lon,
+            search_radius_m=max(radius, 75),
+        )
+        if hydrant_dataset_id:
+            hydrant_source = f"NYC Open Data Hydrants ({hydrant_dataset_id})"
+
+    if resolved_hydrant_distance_ft is not None:
+        hydrant_eval = evaluate_hydrant_clearance(resolved_hydrant_distance_ft, threshold_ft=15.0)
         rules.append(
             ParkingRule(
                 type=hydrant_eval.rule_type,
@@ -412,7 +424,7 @@ def get_parking_status(
                 severity=hydrant_eval.severity,
                 valid=not hydrant_eval.blocked,
                 reason=hydrant_eval.reason,
-                source="ParkGuard Hydrant Proximity (demo scaffold)",
+                source=hydrant_source,
             )
         )
 

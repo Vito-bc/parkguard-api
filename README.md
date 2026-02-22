@@ -92,5 +92,11 @@ Status: MVP in progress
 - Truck / loading-only restrictions (vehicle profile support added; dataset-specific parsing needs refinement)
 - Taxi / FHV-only curb zones (vehicle profile support added; sign parsing is heuristic for MVP)
 - Hydrant proximity rule (demo scaffold via `hydrant_distance_ft`; wire real hydrant dataset next)
+- Hydrant proximity rule (auto lookup from NYC hydrant datasets with optional `hydrant_distance_ft` override)
 - Fire / official-only curb zones (heuristic sign parsing + agency profile support)
 - Jurisdiction-specific ticket fine catalog (e.g., NYC fine estimates by violation type)
+
+## Hydrant Lookup Notes
+
+- ParkGuard now attempts automatic nearest-hydrant lookup from NYC Open Data hydrant datasets (`5bgh-vtsn`, fallback `6pui-xhxz`)
+- `hydrant_distance_ft` remains available as a manual override for demo/testing scenarios
