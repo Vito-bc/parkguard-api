@@ -38,9 +38,17 @@ class SourceInfo(BaseModel):
     meters: str
 
 
+class ParkingDecision(BaseModel):
+    status: str = Field(..., description="safe | caution | blocked")
+    risk_score: int = Field(..., ge=0, le=100)
+    primary_reason: str
+    recommended_action: str
+
+
 class ParkingStatusResponse(BaseModel):
     location: LocationInfo
     rules: list[ParkingRule]
+    parking_decision: ParkingDecision
     confidence: float = Field(..., ge=0.0, le=1.0)
     warning: Optional[str] = None
     sources: SourceInfo

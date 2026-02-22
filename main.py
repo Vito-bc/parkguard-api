@@ -33,6 +33,56 @@ def _format_duration(delta: timedelta) -> str:
     return f"{hours}h {minutes}m"
 
 
+def _derive_parking_decision(rules: list[ParkingRule]) -> dict:
+    blocked_reasons: list[str] = []
+    caution_reasons: list[str] = []
+    risk_score = 0
+
+    for rule in rules:
+        if rule.type == "street_cleaning" and rule.active_now:
+            blocked_reasons.append(rule.reason or "Street cleaning active now")
+            risk_score = max(risk_score, 95)
+            continue
+
+        if rule.type in {"no_standing", "no parking"} and not rule.valid:
+            blocked_reasons.append(rule.description)
+            risk_score = max(risk_score, 90)
+            continue
+
+        if rule.type == "street_cleaning" and not rule.active_now and rule.time_left:
+            caution_reasons.append(rule.reason or f"Street cleaning starts in {rule.time_left}")
+            risk_score = max(risk_score, 60)
+            continue
+
+        if rule.type == "metered" and rule.valid:
+            caution_reasons.append("Meter payment required")
+            risk_score = max(risk_score, 30)
+            continue
+
+    if blocked_reasons:
+        return {
+            "status": "blocked",
+            "risk_score": risk_score or 90,
+            "primary_reason": blocked_reasons[0],
+            "recommended_action": "Do not park here. Move to another spot.",
+        }
+
+    if caution_reasons:
+        return {
+            "status": "caution",
+            "risk_score": risk_score or 50,
+            "primary_reason": caution_reasons[0],
+            "recommended_action": "Parking may be allowed now, but review restrictions.",
+        }
+
+    return {
+        "status": "safe",
+        "risk_score": 10,
+        "primary_reason": "No active restrictions detected in current rule set.",
+        "recommended_action": "Proceed to park, then verify on-street signage.",
+    }
+
+
 @app.get("/health", response_model=HealthResponse)
 def health() -> HealthResponse:
     return HealthResponse(status="ok")
@@ -168,12 +218,15 @@ def get_parking_status(
         next_cleaning_iso = rules[0].next_cleaning.isoformat() if rules[0].next_cleaning else None
         time_left_str = rules[0].time_left
 
+    decision = _derive_parking_decision(rules)
     warning = None
     street_cleaning_rule = next(
         (rule for rule in rules if rule.type == "street_cleaning"),
         None,
     )
-    if street_cleaning_rule and street_cleaning_rule.active_now:
+    if decision["status"] == "blocked":
+        warning = decision["primary_reason"]
+    elif street_cleaning_rule and street_cleaning_rule.active_now:
         warning = street_cleaning_rule.reason or "Cannot park here - street cleaning active"
     elif time_left_str:
         warning = f"Caution: street cleaning starts in {time_left_str}"
@@ -187,6 +240,7 @@ def get_parking_status(
             "timestamp": current_time,
         },
         rules=rules,
+        parking_decision=decision,
         confidence=0.98 if rules else 0.5,
         warning=warning,
         sources={

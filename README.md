@@ -7,6 +7,7 @@ Real-time NYC parking rules API prototype for connected vehicles (OTA-style inte
 - Returns parking-related rules for a location (`lat`, `lon`, `radius`)
 - Combines NYC Open Data parking regulations and parking meter data
 - Produces vehicle-friendly JSON (`rules`, `warning`, `confidence`)
+- Returns an aggregated vehicle-ready decision (`safe` / `caution` / `blocked`)
 - Uses typed response models (Pydantic) for stable integration contracts
 - Includes recurring time-window rule engine for street cleaning countdowns
 - Includes demo fallback response if upstream datasets are unavailable
@@ -37,8 +38,14 @@ Example response (shape):
       "source": "NYC DOT Sweeping Schedule"
     }
   ],
+  "parking_decision": {
+    "status": "caution",
+    "risk_score": 60,
+    "primary_reason": "Street cleaning starts in 24h 0m",
+    "recommended_action": "Parking may be allowed now, but review restrictions."
+  },
   "confidence": 0.98,
-  "warning": "Cannot park here - street cleaning in 24h 0m"
+  "warning": "Caution: street cleaning starts in 24h 0m"
 }
 ```
 
