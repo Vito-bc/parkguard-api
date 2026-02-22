@@ -6,6 +6,7 @@ import requests
 from fastapi import FastAPI, Query
 from fastapi.responses import FileResponse, HTMLResponse, Response
 
+from proximity_engine import evaluate_hydrant_clearance
 from rule_engine import evaluate_recurring_window
 from schemas import HealthResponse, ParkingRule, ParkingStatusResponse
 
@@ -401,21 +402,16 @@ def get_parking_status(
         time_left_str = rules[0].time_left
 
     if hydrant_distance_ft is not None:
-        hydrant_threshold_ft = 15.0
-        hydrant_blocked = hydrant_distance_ft < hydrant_threshold_ft
+        hydrant_eval = evaluate_hydrant_clearance(hydrant_distance_ft, threshold_ft=15.0)
         rules.append(
             ParkingRule(
-                type="hydrant_proximity",
+                type=hydrant_eval.rule_type,
                 description="Fire hydrant clearance rule",
-                distance_ft=round(hydrant_distance_ft, 1),
-                threshold_ft=hydrant_threshold_ft,
-                severity="high" if hydrant_blocked else "low",
-                valid=not hydrant_blocked,
-                reason=(
-                    f"Too close to hydrant: {hydrant_distance_ft:.1f} ft (minimum {hydrant_threshold_ft:.0f} ft)."
-                    if hydrant_blocked
-                    else f"Hydrant clearance ok: {hydrant_distance_ft:.1f} ft from nearest hydrant."
-                ),
+                distance_ft=hydrant_eval.distance_ft,
+                threshold_ft=hydrant_eval.threshold_ft,
+                severity=hydrant_eval.severity,
+                valid=not hydrant_eval.blocked,
+                reason=hydrant_eval.reason,
                 source="ParkGuard Hydrant Proximity (demo scaffold)",
             )
         )
