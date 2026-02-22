@@ -14,7 +14,7 @@ Real-time NYC parking rules API prototype for connected vehicles (OTA-style inte
 
 ## API Endpoint
 
-`GET /parking-status?lat=40.7580&lon=-73.9855&radius=50`
+`GET /parking-status?lat=40.7580&lon=-73.9855&radius=50&vehicle_type=passenger&commercial_plate=false`
 
 Example response (shape):
 
@@ -26,6 +26,10 @@ Example response (shape):
     "radius_m": 50,
     "address": "NYC address lookup not implemented yet",
     "timestamp": "2026-02-22T19:30:00+00:00"
+  },
+  "vehicle_profile": {
+    "vehicle_type": "passenger",
+    "commercial_plate": false
   },
   "rules": [
     {
@@ -75,6 +79,6 @@ Status: MVP in progress
 
 ## Roadmap (high-value parking rules)
 
-- Truck / loading-only restrictions (requires vehicle profile inputs like `vehicle_type`, `commercial_plate`)
+- Truck / loading-only restrictions (vehicle profile support added; dataset-specific parsing needs refinement)
 - Hydrant proximity rule (high-priority, high-ticket-risk alert)
 - Jurisdiction-specific ticket fine catalog (e.g., NYC fine estimates by violation type)

@@ -16,6 +16,11 @@ class LocationInfo(BaseModel):
     timestamp: datetime
 
 
+class VehicleProfile(BaseModel):
+    vehicle_type: str = Field(..., description="passenger | truck")
+    commercial_plate: bool
+
+
 class ParkingRule(BaseModel):
     type: str
     description: str
@@ -47,6 +52,7 @@ class ParkingDecision(BaseModel):
 
 class ParkingStatusResponse(BaseModel):
     location: LocationInfo
+    vehicle_profile: VehicleProfile
     rules: list[ParkingRule]
     parking_decision: ParkingDecision
     confidence: float = Field(..., ge=0.0, le=1.0)

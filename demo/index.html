@@ -75,7 +75,7 @@
     }
     .controls {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: repeat(6, 1fr);
       gap: 10px;
     }
     .controls input {
@@ -85,6 +85,23 @@
       background: #0f2024;
       color: var(--text);
       padding: 10px 12px;
+    }
+    .controls select, .controls label.toggle {
+      width: 100%;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: #0f2024;
+      color: var(--text);
+      padding: 10px 12px;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .controls label.toggle input {
+      width: auto;
+      margin: 0;
+      accent-color: var(--accent);
     }
     .controls button {
       border-radius: 10px;
@@ -229,6 +246,14 @@
           <input id="lat" type="number" step="0.0001" value="40.7580" placeholder="Latitude">
           <input id="lon" type="number" step="0.0001" value="-73.9855" placeholder="Longitude">
           <input id="radius" type="number" step="1" value="50" placeholder="Radius (m)">
+          <select id="vehicleType" aria-label="Vehicle type">
+            <option value="passenger" selected>Passenger</option>
+            <option value="truck">Truck</option>
+          </select>
+          <label class="toggle" for="commercialPlate">
+            <input id="commercialPlate" type="checkbox">
+            Commercial plate
+          </label>
           <button id="checkBtn" type="button">Check Spot</button>
         </div>
 
@@ -256,6 +281,12 @@
           <div class="kv"><span class="label">Status</span><span class="value" id="decisionStatus">-</span></div>
           <div class="kv"><span class="label">Risk score</span><span class="value" id="decisionRisk">-</span></div>
           <div class="kv"><span class="label">Action</span><span class="value" id="decisionAction">-</span></div>
+        </section>
+
+        <section class="card">
+          <div class="rule-type">Vehicle Profile</div>
+          <div class="kv"><span class="label">Type</span><span class="value" id="vehType">-</span></div>
+          <div class="kv"><span class="label">Commercial plate</span><span class="value" id="vehCommercial">-</span></div>
         </section>
 
         <section class="card">
@@ -326,9 +357,12 @@
       el("decisionAction").textContent = decision.recommended_action || "-";
 
       const loc = data.location || {};
+      const vp = data.vehicle_profile || {};
       el("locCoords").textContent = `${loc.lat ?? "-"}, ${loc.lon ?? "-"}`;
       el("locRadius").textContent = `${loc.radius_m ?? "-"} m`;
       el("locTime").textContent = loc.timestamp ? new Date(loc.timestamp).toLocaleString() : "-";
+      el("vehType").textContent = vp.vehicle_type || "-";
+      el("vehCommercial").textContent = vp.commercial_plate == null ? "-" : (vp.commercial_plate ? "yes" : "no");
 
       const rules = Array.isArray(data.rules) ? data.rules : [];
       el("rulesList").innerHTML = rules.length ? rules.map(ruleHtml).join("") : `<div class="note">No rules returned.</div>`;
@@ -338,9 +372,13 @@
       const lat = el("lat").value || "40.7580";
       const lon = el("lon").value || "-73.9855";
       const radius = el("radius").value || "50";
+      const vehicleType = el("vehicleType").value || "passenger";
+      const commercialPlate = el("commercialPlate").checked ? "true" : "false";
       el("reasonText").textContent = "Requesting parking decision...";
       try {
-        const resp = await fetch(`/parking-status?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&radius=${encodeURIComponent(radius)}`);
+        const resp = await fetch(
+          `/parking-status?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&radius=${encodeURIComponent(radius)}&vehicle_type=${encodeURIComponent(vehicleType)}&commercial_plate=${encodeURIComponent(commercialPlate)}`
+        );
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         const data = await resp.json();
         render(data);
@@ -360,6 +398,8 @@
     });
 
     el("checkBtn").addEventListener("click", fetchStatus);
+    el("vehicleType").addEventListener("change", fetchStatus);
+    el("commercialPlate").addEventListener("change", fetchStatus);
     updateClock();
     setInterval(updateClock, 1000);
     fetchStatus();

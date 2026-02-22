@@ -47,6 +47,11 @@ def _derive_parking_decision(rules: list[ParkingRule]) -> dict:
             risk_score = max(risk_score, 95)
             continue
 
+        if rule.type in {"loading_only", "truck_loading_only"} and not rule.valid:
+            blocked_reasons.append(rule.reason or rule.description)
+            risk_score = max(risk_score, 92)
+            continue
+
         if rule.type in {"no_standing", "no parking"} and not rule.valid:
             blocked_reasons.append(rule.description)
             risk_score = max(risk_score, 90)
@@ -103,6 +108,8 @@ def get_parking_status(
     lat: float = Query(40.7128, description="Latitude"),
     lon: float = Query(-74.0060, description="Longitude"),
     radius: int = Query(50, ge=1, le=500, description="Search radius in meters"),
+    vehicle_type: str = Query("passenger", pattern="^(passenger|truck)$", description="Vehicle class"),
+    commercial_plate: bool = Query(False, description="Commercial plate status"),
 ) -> ParkingStatusResponse:
     current_time = datetime.now(UTC)
 
@@ -120,6 +127,7 @@ def get_parking_status(
         rule_type = str(reg.get("order_type", "unknown")).lower()
         description = reg.get("sign_desc") or reg.get("description") or "No description"
         valid = True
+        description_lower = description.lower()
 
         is_cleaning = "clean" in rule_type or "alternate side" in description.lower()
         if is_cleaning:
@@ -157,6 +165,40 @@ def get_parking_status(
                     valid=can_park_now,
                     reason=reason,
                     source="NYC DOT Sweeping Schedule",
+                )
+            )
+            continue
+
+        is_loading_zone = any(
+            token in description_lower
+            for token in ("loading", "truck loading", "commercial vehicles only", "trucks only")
+        )
+        if is_loading_zone:
+            allows_truck = "truck" in description_lower or "commercial" in description_lower
+            allows_loading = "loading" in description_lower
+            can_use_loading_zone = (
+                vehicle_type == "truck"
+                and commercial_plate
+                and (allows_truck or allows_loading)
+            )
+            reason = None
+            severity = "medium"
+            if not can_use_loading_zone:
+                reason = (
+                    "Loading/truck-only zone. Requires commercial truck profile."
+                )
+                severity = "high"
+            else:
+                reason = "Commercial truck profile matches loading/truck-only zone."
+
+            rules.append(
+                ParkingRule(
+                    type="truck_loading_only" if "truck" in description_lower else "loading_only",
+                    description=description,
+                    severity=severity,
+                    valid=can_use_loading_zone,
+                    reason=reason,
+                    source="NYC DOT Sign",
                 )
             )
             continue
@@ -248,6 +290,10 @@ def get_parking_status(
             "radius_m": radius,
             "address": "NYC address lookup not implemented yet",
             "timestamp": current_time,
+        },
+        vehicle_profile={
+            "vehicle_type": vehicle_type,
+            "commercial_plate": commercial_plate,
         },
         rules=rules,
         parking_decision=decision,
