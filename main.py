@@ -52,6 +52,11 @@ def _derive_parking_decision(rules: list[ParkingRule]) -> dict:
             risk_score = max(risk_score, 92)
             continue
 
+        if rule.type in {"taxi_only", "fhv_only"} and not rule.valid:
+            blocked_reasons.append(rule.reason or rule.description)
+            risk_score = max(risk_score, 93)
+            continue
+
         if rule.type in {"no_standing", "no parking"} and not rule.valid:
             blocked_reasons.append(rule.description)
             risk_score = max(risk_score, 90)
@@ -108,7 +113,11 @@ def get_parking_status(
     lat: float = Query(40.7128, description="Latitude"),
     lon: float = Query(-74.0060, description="Longitude"),
     radius: int = Query(50, ge=1, le=500, description="Search radius in meters"),
-    vehicle_type: str = Query("passenger", pattern="^(passenger|truck)$", description="Vehicle class"),
+    vehicle_type: str = Query(
+        "passenger",
+        pattern="^(passenger|truck|taxi|fhv)$",
+        description="Vehicle class",
+    ),
     commercial_plate: bool = Query(False, description="Commercial plate status"),
 ) -> ParkingStatusResponse:
     current_time = datetime.now(UTC)
@@ -197,6 +206,46 @@ def get_parking_status(
                     description=description,
                     severity=severity,
                     valid=can_use_loading_zone,
+                    reason=reason,
+                    source="NYC DOT Sign",
+                )
+            )
+            continue
+
+        is_taxi_zone = any(
+            token in description_lower
+            for token in ("taxi stand", "taxi only", "taxicab", "taxi zone")
+        )
+        is_fhv_zone = any(
+            token in description_lower
+            for token in ("for-hire", "for hire", "fhv", "tlc")
+        ) and any(
+            token in description_lower
+            for token in ("stand", "pickup", "pick-up", "only", "zone")
+        )
+
+        if is_taxi_zone or is_fhv_zone:
+            if is_taxi_zone:
+                allowed = vehicle_type == "taxi"
+                rule_kind = "taxi_only"
+                zone_label = "Taxi-only zone"
+            else:
+                allowed = vehicle_type in {"fhv", "taxi"}
+                rule_kind = "fhv_only"
+                zone_label = "FHV/TLC zone"
+
+            severity = "low" if allowed else "high"
+            reason = (
+                f"{zone_label} matches current vehicle profile."
+                if allowed
+                else f"{zone_label}. Current vehicle type '{vehicle_type}' is not eligible."
+            )
+            rules.append(
+                ParkingRule(
+                    type=rule_kind,
+                    description=description,
+                    severity=severity,
+                    valid=allowed,
                     reason=reason,
                     source="NYC DOT Sign",
                 )

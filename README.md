@@ -80,5 +80,6 @@ Status: MVP in progress
 ## Roadmap (high-value parking rules)
 
 - Truck / loading-only restrictions (vehicle profile support added; dataset-specific parsing needs refinement)
+- Taxi / FHV-only curb zones (vehicle profile support added; sign parsing is heuristic for MVP)
 - Hydrant proximity rule (high-priority, high-ticket-risk alert)
 - Jurisdiction-specific ticket fine catalog (e.g., NYC fine estimates by violation type)

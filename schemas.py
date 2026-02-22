@@ -17,7 +17,7 @@ class LocationInfo(BaseModel):
 
 
 class VehicleProfile(BaseModel):
-    vehicle_type: str = Field(..., description="passenger | truck")
+    vehicle_type: str = Field(..., description="passenger | truck | taxi | fhv")
     commercial_plate: bool
 
 
