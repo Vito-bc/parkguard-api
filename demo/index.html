@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ParkGuard Demo Console</title>
+  <style>
+    :root {
+      --bg: #0d1b1e;
+      --panel: #13262b;
+      --panel-2: #17333a;
+      --line: #2b4a50;
+      --text: #eaf7f5;
+      --muted: #9ec3bd;
+      --ok: #27c37a;
+      --warn: #ffb020;
+      --bad: #ff5e5b;
+      --accent: #68e0cf;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 20% 10%, rgba(104,224,207,.15), transparent 40%),
+        radial-gradient(circle at 85% 85%, rgba(255,176,32,.08), transparent 45%),
+        linear-gradient(180deg, #091214, #0d1b1e 30%, #0a1214);
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .frame {
+      max-width: 1100px;
+      margin: 0 auto;
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      background: linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,0));
+      box-shadow: 0 20px 60px rgba(0,0,0,.35);
+      overflow: hidden;
+    }
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(255,255,255,.02);
+    }
+    .brand {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      font-weight: 700;
+      letter-spacing: .04em;
+    }
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 14px var(--accent);
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 1.2fr .8fr;
+      gap: 16px;
+      padding: 16px;
+    }
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: linear-gradient(180deg, var(--panel), var(--panel-2));
+      padding: 16px;
+    }
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+    }
+    .controls input {
+      width: 100%;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: #0f2024;
+      color: var(--text);
+      padding: 10px 12px;
+    }
+    .controls button {
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, #1f3a42, #173138);
+      color: var(--text);
+      font-weight: 600;
+      cursor: pointer;
+      padding: 10px 12px;
+    }
+    .controls button:hover { border-color: var(--accent); }
+    .presets {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+    }
+    .preset {
+      background: transparent;
+      border: 1px solid var(--line);
+      color: var(--muted);
+      border-radius: 999px;
+      padding: 6px 10px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+    .preset:hover { color: var(--text); border-color: var(--accent); }
+    .hero {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 16px;
+      align-items: center;
+      margin-top: 14px;
+    }
+    .status {
+      font-size: 34px;
+      font-weight: 800;
+      letter-spacing: .03em;
+    }
+    .status.safe { color: var(--ok); }
+    .status.caution { color: var(--warn); }
+    .status.blocked { color: var(--bad); }
+    .pill {
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      padding: 8px 12px;
+      font-weight: 700;
+      min-width: 120px;
+      text-align: center;
+    }
+    .pill.safe { color: var(--ok); border-color: rgba(39,195,122,.4); }
+    .pill.caution { color: var(--warn); border-color: rgba(255,176,32,.4); }
+    .pill.blocked { color: var(--bad); border-color: rgba(255,94,91,.5); }
+    .meta {
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    .list {
+      display: grid;
+      gap: 10px;
+      margin-top: 12px;
+      max-height: 420px;
+      overflow: auto;
+      padding-right: 4px;
+    }
+    .rule {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px;
+      background: rgba(255,255,255,.02);
+    }
+    .rule-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: center;
+    }
+    .rule-type {
+      font-size: 12px;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .sev {
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      padding: 2px 8px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .sev.high { color: var(--bad); }
+    .sev.medium { color: var(--warn); }
+    .sev.low { color: var(--ok); }
+    .rule-desc {
+      margin-top: 6px;
+      font-weight: 600;
+    }
+    .rule-meta {
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.4;
+    }
+    .sidegrid {
+      display: grid;
+      gap: 12px;
+      align-content: start;
+    }
+    .kv {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+    .label { color: var(--muted); }
+    .value { color: var(--text); font-weight: 600; }
+    .note {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.4;
+    }
+    @media (max-width: 900px) {
+      .grid { grid-template-columns: 1fr; }
+      .controls { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <div class="topbar">
+      <div class="brand"><span class="dot"></span> PARKGUARD DEMO CONSOLE</div>
+      <div id="clock" class="note"></div>
+    </div>
+
+    <div class="grid">
+      <section class="card">
+        <div class="controls">
+          <input id="lat" type="number" step="0.0001" value="40.7580" placeholder="Latitude">
+          <input id="lon" type="number" step="0.0001" value="-73.9855" placeholder="Longitude">
+          <input id="radius" type="number" step="1" value="50" placeholder="Radius (m)">
+          <button id="checkBtn" type="button">Check Spot</button>
+        </div>
+
+        <div class="presets">
+          <button class="preset" data-lat="40.7580" data-lon="-73.9855">Times Sq</button>
+          <button class="preset" data-lat="40.7128" data-lon="-74.0060">FiDi</button>
+          <button class="preset" data-lat="40.7505" data-lon="-73.9934">Penn</button>
+          <button class="preset" data-lat="40.7308" data-lon="-73.9973">Greenwich</button>
+        </div>
+
+        <div class="hero">
+          <div>
+            <div id="statusText" class="status caution">CAUTION</div>
+            <div id="reasonText" class="meta">Loading demo response...</div>
+          </div>
+          <div id="riskPill" class="pill caution">Risk 60</div>
+        </div>
+
+        <div id="rulesList" class="list"></div>
+      </section>
+
+      <aside class="sidegrid">
+        <section class="card">
+          <div class="rule-type">Decision</div>
+          <div class="kv"><span class="label">Status</span><span class="value" id="decisionStatus">-</span></div>
+          <div class="kv"><span class="label">Risk score</span><span class="value" id="decisionRisk">-</span></div>
+          <div class="kv"><span class="label">Action</span><span class="value" id="decisionAction">-</span></div>
+        </section>
+
+        <section class="card">
+          <div class="rule-type">Location</div>
+          <div class="kv"><span class="label">Coordinates</span><span class="value" id="locCoords">-</span></div>
+          <div class="kv"><span class="label">Radius</span><span class="value" id="locRadius">-</span></div>
+          <div class="kv"><span class="label">Updated</span><span class="value" id="locTime">-</span></div>
+        </section>
+
+        <section class="card">
+          <div class="rule-type">Integration Notes</div>
+          <p class="note">
+            This mock screen shows the OTA-style output of ParkGuard. A real vehicle HMI would call
+            <code>/parking-status</code> and render only the aggregated decision + top reasons.
+          </p>
+          <p class="note">
+            Next upgrades: hydrant proximity rule, truck/loading-only logic, jurisdiction-specific ticket rates.
+          </p>
+        </section>
+      </aside>
+    </div>
+  </div>
+
+  <script>
+    const el = (id) => document.getElementById(id);
+
+    function updateClock() {
+      el("clock").textContent = new Date().toLocaleString();
+    }
+
+    function statusClass(status) {
+      return ["safe", "caution", "blocked"].includes(status) ? status : "caution";
+    }
+
+    function ruleHtml(rule) {
+      const sev = rule.severity || "info";
+      const metaBits = [];
+      if (rule.window) metaBits.push(`Window: ${rule.window}`);
+      if (rule.time_left) metaBits.push(`Countdown: ${rule.time_left}`);
+      if (rule.fine != null) metaBits.push(`Fine: $${rule.fine}`);
+      if (rule.rate) metaBits.push(`Rate: ${rule.rate}`);
+      if (rule.reason) metaBits.push(rule.reason);
+      metaBits.push(`Valid now: ${rule.valid ? "yes" : "no"}`);
+      return `
+        <div class="rule">
+          <div class="rule-top">
+            <div class="rule-type">${(rule.type || "rule").replaceAll("_", " ")}</div>
+            <div class="sev ${sev}">${sev}</div>
+          </div>
+          <div class="rule-desc">${rule.description || "No description"}</div>
+          <div class="rule-meta">${metaBits.join(" • ")}</div>
+        </div>
+      `;
+    }
+
+    function render(data) {
+      const decision = data.parking_decision || {};
+      const status = statusClass((decision.status || "caution").toLowerCase());
+
+      el("statusText").textContent = (decision.status || "caution").toUpperCase();
+      el("statusText").className = `status ${status}`;
+      el("reasonText").textContent = decision.primary_reason || data.warning || "No reason provided";
+      el("riskPill").textContent = `Risk ${decision.risk_score ?? "-"}`;
+      el("riskPill").className = `pill ${status}`;
+
+      el("decisionStatus").textContent = decision.status || "-";
+      el("decisionRisk").textContent = decision.risk_score ?? "-";
+      el("decisionAction").textContent = decision.recommended_action || "-";
+
+      const loc = data.location || {};
+      el("locCoords").textContent = `${loc.lat ?? "-"}, ${loc.lon ?? "-"}`;
+      el("locRadius").textContent = `${loc.radius_m ?? "-"} m`;
+      el("locTime").textContent = loc.timestamp ? new Date(loc.timestamp).toLocaleString() : "-";
+
+      const rules = Array.isArray(data.rules) ? data.rules : [];
+      el("rulesList").innerHTML = rules.length ? rules.map(ruleHtml).join("") : `<div class="note">No rules returned.</div>`;
+    }
+
+    async function fetchStatus() {
+      const lat = el("lat").value || "40.7580";
+      const lon = el("lon").value || "-73.9855";
+      const radius = el("radius").value || "50";
+      el("reasonText").textContent = "Requesting parking decision...";
+      try {
+        const resp = await fetch(`/parking-status?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&radius=${encodeURIComponent(radius)}`);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const data = await resp.json();
+        render(data);
+      } catch (err) {
+        el("statusText").textContent = "ERROR";
+        el("statusText").className = "status blocked";
+        el("reasonText").textContent = `Failed to load data: ${err.message}`;
+      }
+    }
+
+    document.querySelectorAll(".preset").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        el("lat").value = btn.dataset.lat;
+        el("lon").value = btn.dataset.lon;
+        fetchStatus();
+      });
+    });
+
+    el("checkBtn").addEventListener("click", fetchStatus);
+    updateClock();
+    setInterval(updateClock, 1000);
+    fetchStatus();
+  </script>
+</body>
+</html>

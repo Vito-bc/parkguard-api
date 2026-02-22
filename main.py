@@ -1,8 +1,10 @@
 from datetime import UTC, datetime, timedelta
 from math import cos, radians
+from pathlib import Path
 
 import requests
 from fastapi import FastAPI, Query
+from fastapi.responses import FileResponse, HTMLResponse
 
 from rule_engine import evaluate_recurring_window
 from schemas import HealthResponse, ParkingRule, ParkingStatusResponse
@@ -14,6 +16,7 @@ app = FastAPI(
 )
 
 REQUEST_TIMEOUT_SECONDS = 5
+DEMO_HTML_PATH = Path(__file__).parent / "demo" / "index.html"
 
 
 def _fetch_json(url: str) -> list[dict]:
@@ -86,6 +89,13 @@ def _derive_parking_decision(rules: list[ParkingRule]) -> dict:
 @app.get("/health", response_model=HealthResponse)
 def health() -> HealthResponse:
     return HealthResponse(status="ok")
+
+
+@app.get("/demo", include_in_schema=False)
+def demo_page() -> FileResponse | HTMLResponse:
+    if DEMO_HTML_PATH.exists():
+        return FileResponse(DEMO_HTML_PATH)
+    return HTMLResponse("<h1>Demo page not found</h1>", status_code=404)
 
 
 @app.get("/parking-status", response_model=ParkingStatusResponse)

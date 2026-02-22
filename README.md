@@ -59,6 +59,7 @@ uvicorn main:app --reload
 Swagger UI:
 
 - `http://127.0.0.1:8000/docs`
+- Demo dashboard (mock in-car screen): `http://127.0.0.1:8000/demo`
 
 Run tests:
 
@@ -71,3 +72,9 @@ python -m unittest discover -s tests -v
 ParkGuard is designed as a B2B parking intelligence module for connected vehicles (Toyota / Hyundai / Kia / Rivian / Ford / GM style integration), not only as a standalone app.
 
 Status: MVP in progress
+
+## Roadmap (high-value parking rules)
+
+- Truck / loading-only restrictions (requires vehicle profile inputs like `vehicle_type`, `commercial_plate`)
+- Hydrant proximity rule (high-priority, high-ticket-risk alert)
+- Jurisdiction-specific ticket fine catalog (e.g., NYC fine estimates by violation type)
