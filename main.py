@@ -4,7 +4,7 @@ from pathlib import Path
 
 import requests
 from fastapi import FastAPI, Query
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, Response
 
 from rule_engine import evaluate_recurring_window
 from schemas import HealthResponse, ParkingRule, ParkingStatusResponse
@@ -91,8 +91,8 @@ def health() -> HealthResponse:
     return HealthResponse(status="ok")
 
 
-@app.get("/demo", include_in_schema=False)
-def demo_page() -> FileResponse | HTMLResponse:
+@app.get("/demo", include_in_schema=False, response_model=None, response_class=HTMLResponse)
+def demo_page() -> Response:
     if DEMO_HTML_PATH.exists():
         return FileResponse(DEMO_HTML_PATH)
     return HTMLResponse("<h1>Demo page not found</h1>", status_code=404)
