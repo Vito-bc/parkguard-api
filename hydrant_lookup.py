@@ -5,18 +5,26 @@ from typing import Any
 
 import requests
 
+from cache_store import http_json_cache
 from proximity_engine import distance_meters, meters_to_feet
 
 NYC_HYDRANT_DATASET_IDS = ("5bgh-vtsn", "6pui-xhxz")
 REQUEST_TIMEOUT_SECONDS = 4
+HTTP_JSON_CACHE_TTL_SECONDS = 300
 
 
 def _fetch_json(url: str) -> list[dict[str, Any]]:
+    cached = http_json_cache.get(url)
+    if isinstance(cached, list):
+        return cached
+
     try:
         response = requests.get(url, timeout=REQUEST_TIMEOUT_SECONDS)
         response.raise_for_status()
         data = response.json()
-        return data if isinstance(data, list) else []
+        rows = data if isinstance(data, list) else []
+        http_json_cache.set(url, rows, ttl_seconds=HTTP_JSON_CACHE_TTL_SECONDS)
+        return rows
     except (requests.RequestException, ValueError):
         return []
 

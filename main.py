@@ -6,6 +6,7 @@ import requests
 from fastapi import FastAPI, Query
 from fastapi.responses import FileResponse, HTMLResponse, Response
 
+from cache_store import http_json_cache
 from hydrant_lookup import find_nearest_hydrant_distance_ft
 from proximity_engine import evaluate_hydrant_clearance
 from rule_engine import evaluate_recurring_window
@@ -18,15 +19,22 @@ app = FastAPI(
 )
 
 REQUEST_TIMEOUT_SECONDS = 5
+HTTP_JSON_CACHE_TTL_SECONDS = 60
 DEMO_HTML_PATH = Path(__file__).parent / "demo" / "index.html"
 
 
 def _fetch_json(url: str) -> list[dict]:
+    cached = http_json_cache.get(url)
+    if isinstance(cached, list):
+        return cached
+
     try:
         response = requests.get(url, timeout=REQUEST_TIMEOUT_SECONDS)
         response.raise_for_status()
         data = response.json()
-        return data if isinstance(data, list) else []
+        rows = data if isinstance(data, list) else []
+        http_json_cache.set(url, rows, ttl_seconds=HTTP_JSON_CACHE_TTL_SECONDS)
+        return rows
     except (requests.RequestException, ValueError):
         return []
 

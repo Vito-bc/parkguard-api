@@ -99,6 +99,7 @@ Status: MVP in progress
 - Hydrant proximity rule (auto lookup from NYC hydrant datasets with optional `hydrant_distance_ft` override)
 - Fire / official-only curb zones (heuristic sign parsing + agency profile support)
 - Jurisdiction-specific ticket fine catalog (e.g., NYC fine estimates by violation type)
+- In-memory TTL caching for upstream NYC Open Data requests (demo stability / lower request volume)
 
 ## Hydrant Lookup Notes
 
