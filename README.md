@@ -81,6 +81,10 @@ Run tests:
 python -m unittest discover -s tests -v
 ```
 
+Includes:
+- unit tests for rule/proximity/hydrant parsing
+- integration tests for `/parking-status` and `/demo` via FastAPI `TestClient`
+
 ## Project direction
 
 ParkGuard is designed as a B2B parking intelligence module for connected vehicles (Toyota / Hyundai / Kia / Rivian / Ford / GM style integration), not only as a standalone app.
