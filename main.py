@@ -11,6 +11,7 @@ from hydrant_lookup import find_nearest_hydrant_distance_ft
 from proximity_engine import evaluate_hydrant_clearance
 from rule_engine import evaluate_recurring_window
 from schemas import HealthResponse, ParkingRule, ParkingStatusResponse
+from violations import estimate_violation_for_rule, summarize_violations
 
 app = FastAPI(
     title="ParkGuard API",
@@ -436,7 +437,18 @@ def get_parking_status(
             )
         )
 
+    enriched_rules: list[ParkingRule] = []
+    for rule in rules:
+        estimate = estimate_violation_for_rule(rule)
+        if estimate is None:
+            enriched_rules.append(rule)
+            continue
+        enriched_rules.append(rule.model_copy(update={"violation_estimate": estimate}))
+
+    rules = enriched_rules
+
     decision = _derive_parking_decision(rules)
+    violation_summary = summarize_violations(rules)
     warning = None
     street_cleaning_rule = next(
         (rule for rule in rules if rule.type == "street_cleaning"),
@@ -464,6 +476,7 @@ def get_parking_status(
         },
         rules=rules,
         parking_decision=decision,
+        violation_summary=violation_summary,
         confidence=0.98 if rules else 0.5,
         warning=warning,
         sources={

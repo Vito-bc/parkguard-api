@@ -40,6 +40,7 @@ class ParkingRule(BaseModel):
     valid: bool
     reason: Optional[str] = None
     source: str
+    violation_estimate: Optional["ViolationEstimate"] = None
 
 
 class SourceInfo(BaseModel):
@@ -54,11 +55,29 @@ class ParkingDecision(BaseModel):
     recommended_action: str
 
 
+class ViolationEstimate(BaseModel):
+    violation_code: Optional[str] = None
+    min_fine_usd: int
+    max_fine_usd: int
+    jurisdiction: str = "NYC"
+    confidence: float = Field(..., ge=0.0, le=1.0)
+    note: Optional[str] = None
+
+
+class ViolationSummary(BaseModel):
+    estimated_total_min_usd: int
+    estimated_total_max_usd: int
+    highest_single_max_usd: int
+    high_risk_violations: int
+    currency: str = "USD"
+
+
 class ParkingStatusResponse(BaseModel):
     location: LocationInfo
     vehicle_profile: VehicleProfile
     rules: list[ParkingRule]
     parking_decision: ParkingDecision
+    violation_summary: ViolationSummary
     confidence: float = Field(..., ge=0.0, le=1.0)
     warning: Optional[str] = None
     sources: SourceInfo

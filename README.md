@@ -8,6 +8,8 @@ Real-time NYC parking rules API prototype for connected vehicles (OTA-style inte
 - Combines NYC Open Data parking regulations and parking meter data
 - Produces vehicle-friendly JSON (`rules`, `warning`, `confidence`)
 - Returns an aggregated vehicle-ready decision (`safe` / `caution` / `blocked`)
+- Adds rule-level NYC ticket estimates (`violation_estimate`) when parking is not valid
+- Adds response-level fine aggregation (`violation_summary`)
 - Uses typed response models (Pydantic) for stable integration contracts
 - Includes recurring time-window rule engine for street cleaning countdowns
 - Includes demo fallback response if upstream datasets are unavailable
@@ -49,7 +51,14 @@ Example response (shape):
       "threshold_ft": 15.0,
       "valid": false,
       "reason": "Too close to hydrant: 12.0 ft (minimum 15 ft).",
-      "source": "ParkGuard Hydrant Proximity (demo scaffold)"
+      "source": "ParkGuard Hydrant Proximity (demo scaffold)",
+      "violation_estimate": {
+        "violation_code": "NYC-HYDRANT-15FT",
+        "min_fine_usd": 115,
+        "max_fine_usd": 115,
+        "jurisdiction": "NYC",
+        "confidence": 0.95
+      }
     }
   ],
   "parking_decision": {
@@ -57,6 +66,13 @@ Example response (shape):
     "risk_score": 97,
     "primary_reason": "Too close to hydrant: 12.0 ft (minimum 15 ft).",
     "recommended_action": "Do not park here. Move to another spot."
+  },
+  "violation_summary": {
+    "estimated_total_min_usd": 115,
+    "estimated_total_max_usd": 115,
+    "highest_single_max_usd": 115,
+    "high_risk_violations": 1,
+    "currency": "USD"
   },
   "confidence": 0.98,
   "warning": "Too close to hydrant: 12.0 ft (minimum 15 ft)."
@@ -98,7 +114,7 @@ Status: MVP in progress
 - Hydrant proximity rule (demo scaffold via `hydrant_distance_ft`; wire real hydrant dataset next)
 - Hydrant proximity rule (auto lookup from NYC hydrant datasets with optional `hydrant_distance_ft` override)
 - Fire / official-only curb zones (heuristic sign parsing + agency profile support)
-- Jurisdiction-specific ticket fine catalog (e.g., NYC fine estimates by violation type)
+- Jurisdiction-specific ticket fine catalog (MVP mapping added for core NYC rule types)
 - In-memory TTL caching for upstream NYC Open Data requests (demo stability / lower request volume)
 
 ## Hydrant Lookup Notes
