@@ -57,7 +57,9 @@ Example response (shape):
         "min_fine_usd": 115,
         "max_fine_usd": 115,
         "jurisdiction": "NYC",
-        "confidence": 0.95
+        "confidence": 0.95,
+        "fine_source": "NYC Department of Finance / NYC parking violation schedules (MVP mapped bands)",
+        "last_updated": "2026-02-27"
       }
     }
   ],
@@ -121,3 +123,8 @@ Status: MVP in progress
 
 - ParkGuard now attempts automatic nearest-hydrant lookup from NYC Open Data hydrant datasets (`5bgh-vtsn`, fallback `6pui-xhxz`)
 - `hydrant_distance_ft` remains available as a manual override for demo/testing scenarios
+
+## Violation Catalog Notes
+
+- Rule fine bands are configured in `data/nyc_fines.json` (no code change needed for updates)
+- API returns rule-level `violation_estimate` and response-level `violation_summary`

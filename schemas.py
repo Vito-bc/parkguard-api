@@ -62,6 +62,8 @@ class ViolationEstimate(BaseModel):
     jurisdiction: str = "NYC"
     confidence: float = Field(..., ge=0.0, le=1.0)
     note: Optional[str] = None
+    fine_source: Optional[str] = None
+    last_updated: Optional[str] = None
 
 
 class ViolationSummary(BaseModel):

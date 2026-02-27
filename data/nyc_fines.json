@@ -1,0 +1,77 @@
+{
+  "jurisdiction": "NYC",
+  "source": "NYC Department of Finance / NYC parking violation schedules (MVP mapped bands)",
+  "last_updated": "2026-02-27",
+  "rules": {
+    "hydrant_proximity": {
+      "violation_code": "NYC-HYDRANT-15FT",
+      "min_fine_usd": 115,
+      "max_fine_usd": 115,
+      "confidence": 0.95,
+      "note": "Fire hydrant clearance violation."
+    },
+    "street_cleaning": {
+      "violation_code": "NYC-ASP",
+      "min_fine_usd": 65,
+      "max_fine_usd": 65,
+      "confidence": 0.9,
+      "note": "Alternate-side parking violation estimate."
+    },
+    "truck_loading_only": {
+      "violation_code": "NYC-TRUCK-LOADING",
+      "min_fine_usd": 95,
+      "max_fine_usd": 115,
+      "confidence": 0.75,
+      "note": "Truck/loading-only curb misuse estimate."
+    },
+    "loading_only": {
+      "violation_code": "NYC-LOADING-ONLY",
+      "min_fine_usd": 95,
+      "max_fine_usd": 115,
+      "confidence": 0.75,
+      "note": "Loading-only curb misuse estimate."
+    },
+    "taxi_only": {
+      "violation_code": "NYC-TAXI-ONLY",
+      "min_fine_usd": 95,
+      "max_fine_usd": 115,
+      "confidence": 0.7,
+      "note": "Taxi stand curb misuse estimate."
+    },
+    "fhv_only": {
+      "violation_code": "NYC-FHV-ONLY",
+      "min_fine_usd": 95,
+      "max_fine_usd": 115,
+      "confidence": 0.7,
+      "note": "FHV/TLC curb misuse estimate."
+    },
+    "fire_zone": {
+      "violation_code": "NYC-FIRE-ZONE",
+      "min_fine_usd": 115,
+      "max_fine_usd": 150,
+      "confidence": 0.7,
+      "note": "Emergency/fire access obstruction estimate."
+    },
+    "official_vehicle_only": {
+      "violation_code": "NYC-OFFICIAL-ONLY",
+      "min_fine_usd": 95,
+      "max_fine_usd": 150,
+      "confidence": 0.65,
+      "note": "Official vehicle-only zone misuse estimate."
+    },
+    "no_standing": {
+      "violation_code": "NYC-NO-STANDING",
+      "min_fine_usd": 95,
+      "max_fine_usd": 115,
+      "confidence": 0.8,
+      "note": "No standing violation estimate by area/time."
+    },
+    "no parking": {
+      "violation_code": "NYC-NO-PARKING",
+      "min_fine_usd": 65,
+      "max_fine_usd": 115,
+      "confidence": 0.8,
+      "note": "No parking violation estimate by area/time."
+    }
+  }
+}

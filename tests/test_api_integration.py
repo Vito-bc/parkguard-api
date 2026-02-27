@@ -43,6 +43,8 @@ class ParkingStatusApiIntegrationTests(unittest.TestCase):
         self.assertFalse(hydrant_rules[0]["valid"])
         self.assertEqual(hydrant_rules[0]["distance_ft"], 12.0)
         self.assertIsNotNone(hydrant_rules[0]["violation_estimate"])
+        self.assertIn("fine_source", hydrant_rules[0]["violation_estimate"])
+        self.assertIn("last_updated", hydrant_rules[0]["violation_estimate"])
 
     def test_loading_zone_blocks_passenger_but_allows_commercial_truck(self) -> None:
         regs = [{"order_type": "parking", "sign_desc": "Truck Loading Only"}]

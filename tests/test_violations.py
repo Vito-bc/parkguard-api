@@ -16,6 +16,8 @@ class ViolationsTests(unittest.TestCase):
         self.assertIsNotNone(estimate)
         self.assertEqual(estimate.violation_code, "NYC-HYDRANT-15FT")
         self.assertEqual(estimate.max_fine_usd, 115)
+        self.assertIsNotNone(estimate.fine_source)
+        self.assertIsNotNone(estimate.last_updated)
 
     def test_no_estimate_when_rule_valid(self) -> None:
         rule = ParkingRule(

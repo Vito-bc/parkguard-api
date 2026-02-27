@@ -294,6 +294,13 @@
         </section>
 
         <section class="card">
+          <div class="rule-type">Estimated Tickets</div>
+          <div class="kv"><span class="label">Total range</span><span class="value" id="fineRange">-</span></div>
+          <div class="kv"><span class="label">Highest single</span><span class="value" id="fineHighest">-</span></div>
+          <div class="kv"><span class="label">High-risk count</span><span class="value" id="fineHighRisk">-</span></div>
+        </section>
+
+        <section class="card">
           <div class="rule-type">Vehicle Profile</div>
           <div class="kv"><span class="label">Type</span><span class="value" id="vehType">-</span></div>
           <div class="kv"><span class="label">Commercial plate</span><span class="value" id="vehCommercial">-</span></div>
@@ -339,6 +346,10 @@
       if (rule.time_left) metaBits.push(`Countdown: ${rule.time_left}`);
       if (rule.fine != null) metaBits.push(`Fine: $${rule.fine}`);
       if (rule.rate) metaBits.push(`Rate: ${rule.rate}`);
+      if (rule.violation_estimate) {
+        const ve = rule.violation_estimate;
+        metaBits.push(`Ticket est: $${ve.min_fine_usd}-${ve.max_fine_usd}`);
+      }
       if (rule.reason) metaBits.push(rule.reason);
       metaBits.push(`Valid now: ${rule.valid ? "yes" : "no"}`);
       return `
@@ -369,12 +380,22 @@
 
       const loc = data.location || {};
       const vp = data.vehicle_profile || {};
+      const vs = data.violation_summary || {};
       el("locCoords").textContent = `${loc.lat ?? "-"}, ${loc.lon ?? "-"}`;
       el("locRadius").textContent = `${loc.radius_m ?? "-"} m`;
       el("locTime").textContent = loc.timestamp ? new Date(loc.timestamp).toLocaleString() : "-";
       el("vehType").textContent = vp.vehicle_type || "-";
       el("vehCommercial").textContent = vp.commercial_plate == null ? "-" : (vp.commercial_plate ? "yes" : "no");
       el("vehAgency").textContent = vp.agency_affiliation || "-";
+      if (vs.estimated_total_max_usd != null) {
+        el("fineRange").textContent = `$${vs.estimated_total_min_usd ?? 0} - $${vs.estimated_total_max_usd ?? 0}`;
+        el("fineHighest").textContent = `$${vs.highest_single_max_usd ?? 0}`;
+        el("fineHighRisk").textContent = `${vs.high_risk_violations ?? 0}`;
+      } else {
+        el("fineRange").textContent = "-";
+        el("fineHighest").textContent = "-";
+        el("fineHighRisk").textContent = "-";
+      }
 
       const rules = Array.isArray(data.rules) ? data.rules : [];
       el("rulesList").innerHTML = rules.length ? rules.map(ruleHtml).join("") : `<div class="note">No rules returned.</div>`;
