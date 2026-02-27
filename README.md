@@ -97,9 +97,3 @@ Next engineering steps:
 - richer school-zone time logic
 - stronger geospatial rule normalization
 - production-grade cache/index strategy
-
-## Resume-ready positioning
-
-If you want to use this project in your resume, see:
-
-- `docs/resume-bullets.md`
