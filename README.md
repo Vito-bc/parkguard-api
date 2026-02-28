@@ -57,6 +57,7 @@ Full interactive docs:
 
 Demo dashboard:
 - `http://127.0.0.1:8000/demo`
+- `http://127.0.0.1:8000/system-health` (cache stats + latest upstream status)
 
 ## Quickstart
 

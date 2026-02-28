@@ -105,6 +105,16 @@ class ParkingStatusApiIntegrationTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("text/html", response.headers.get("content-type", ""))
 
+    def test_system_health_exposes_cache_and_upstream(self) -> None:
+        response = self.client.get("/system-health")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["status"], "ok")
+        self.assertIn("cache", data)
+        self.assertIn("upstream", data)
+        self.assertIn("entries", data["cache"])
+        self.assertIn("regulations", data["upstream"])
+
     def test_no_standing_time_window_blocks_when_active(self) -> None:
         regs = [
             {

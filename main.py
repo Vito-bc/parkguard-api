@@ -1,6 +1,7 @@
 from datetime import UTC, datetime, timedelta
 from math import cos, radians
 from pathlib import Path
+from threading import Lock
 
 import requests
 from fastapi import FastAPI, Query
@@ -25,6 +26,12 @@ app = FastAPI(
 REQUEST_TIMEOUT_SECONDS = 5
 HTTP_JSON_CACHE_TTL_SECONDS = 60
 DEMO_HTML_PATH = Path(__file__).parent / "demo" / "index.html"
+_UPSTREAM_LOCK = Lock()
+_LATEST_UPSTREAM_STATUS = {
+    "regulations": {"status": "not_requested", "cache_hit": None, "fetched_at": None},
+    "meters": {"status": "not_requested", "cache_hit": None, "fetched_at": None},
+    "hydrants": {"status": "not_requested", "cache_hit": None, "fetched_at": None},
+}
 
 
 def _fetch_json(url: str) -> tuple[list[dict], dict]:
@@ -53,6 +60,20 @@ def _format_duration(delta: timedelta) -> str:
 @app.get("/health", response_model=HealthResponse)
 def health() -> HealthResponse:
     return HealthResponse(status="ok")
+
+
+@app.get("/system-health")
+def system_health() -> dict:
+    with _UPSTREAM_LOCK:
+        upstream = dict(_LATEST_UPSTREAM_STATUS)
+    return {
+        "status": "ok",
+        "service": app.title,
+        "version": app.version,
+        "timestamp": datetime.now(UTC),
+        "cache": http_json_cache.stats(),
+        "upstream": upstream,
+    }
 
 
 @app.get("/demo", include_in_schema=False, response_model=None, response_class=HTMLResponse)
@@ -166,6 +187,11 @@ def get_parking_status(
         lookup_fn=find_nearest_hydrant_distance_ft,
     )
     rules.extend(hydrant_rules)
+
+    with _UPSTREAM_LOCK:
+        _LATEST_UPSTREAM_STATUS["regulations"] = regs_freshness
+        _LATEST_UPSTREAM_STATUS["meters"] = meters_freshness
+        _LATEST_UPSTREAM_STATUS["hydrants"] = hydrant_freshness
 
     enriched_rules: list[ParkingRule] = []
     for rule in rules:

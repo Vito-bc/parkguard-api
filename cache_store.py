@@ -17,6 +17,9 @@ class TTLCache:
     def __init__(self) -> None:
         self._store: dict[str, _CacheEntry] = {}
         self._lock = Lock()
+        self._hits = 0
+        self._misses = 0
+        self._expirations = 0
 
     def get(self, key: str) -> Any | None:
         value, _, _ = self.get_with_meta(key)
@@ -27,10 +30,14 @@ class TTLCache:
         with self._lock:
             entry = self._store.get(key)
             if entry is None:
+                self._misses += 1
                 return None, False, None
             if entry.expires_at <= now:
                 self._store.pop(key, None)
+                self._expirations += 1
+                self._misses += 1
                 return None, False, None
+            self._hits += 1
             return entry.value, True, entry.created_at
 
     def set(self, key: str, value: Any, ttl_seconds: int) -> None:
@@ -48,6 +55,18 @@ class TTLCache:
     def clear(self) -> None:
         with self._lock:
             self._store.clear()
+
+    def stats(self) -> dict[str, float | int]:
+        with self._lock:
+            requests = self._hits + self._misses
+            hit_ratio = (self._hits / requests) if requests else 0.0
+            return {
+                "entries": len(self._store),
+                "hits": self._hits,
+                "misses": self._misses,
+                "expirations": self._expirations,
+                "hit_ratio": round(hit_ratio, 3),
+            }
 
 
 http_json_cache = TTLCache()
