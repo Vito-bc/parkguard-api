@@ -91,6 +91,8 @@ This enables non-code updates to estimated fine ranges.
 ## Repository structure
 
 - `main.py` - FastAPI app and endpoint orchestration
+- `sign_parser.py` - parking sign parsing and profile-aware rule conversion
+- `decision_engine.py` - aggregate parking decision scoring (`safe/caution/blocked`)
 - `rule_engine.py` - recurring time-window logic
 - `proximity_engine.py` - distance and clearance evaluation
 - `hydrant_lookup.py` - nearest hydrant lookup from NYC Open Data
