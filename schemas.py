@@ -48,6 +48,18 @@ class SourceInfo(BaseModel):
     meters: str
 
 
+class FreshnessInfo(BaseModel):
+    status: str
+    cache_hit: Optional[bool] = None
+    fetched_at: Optional[datetime] = None
+
+
+class DataFreshness(BaseModel):
+    regulations: FreshnessInfo
+    meters: FreshnessInfo
+    hydrants: FreshnessInfo
+
+
 class ParkingDecision(BaseModel):
     status: str = Field(..., description="safe | caution | blocked")
     risk_score: int = Field(..., ge=0, le=100)
@@ -80,6 +92,7 @@ class ParkingStatusResponse(BaseModel):
     rules: list[ParkingRule]
     parking_decision: ParkingDecision
     violation_summary: ViolationSummary
+    data_freshness: DataFreshness
     confidence: float = Field(..., ge=0.0, le=1.0)
     warning: Optional[str] = None
     sources: SourceInfo

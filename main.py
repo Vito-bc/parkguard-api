@@ -8,8 +8,9 @@ from fastapi.responses import FileResponse, HTMLResponse, Response
 
 from cache_store import http_json_cache
 from decision_engine import derive_parking_decision
+from hydrant_service import build_hydrant_rules
 from hydrant_lookup import find_nearest_hydrant_distance_ft
-from proximity_engine import evaluate_hydrant_clearance
+from meter_parser import parse_meter_record
 from rule_engine import evaluate_recurring_window
 from schemas import HealthResponse, ParkingRule, ParkingStatusResponse
 from sign_parser import VehicleContext, parse_regulation_record
@@ -26,10 +27,10 @@ HTTP_JSON_CACHE_TTL_SECONDS = 60
 DEMO_HTML_PATH = Path(__file__).parent / "demo" / "index.html"
 
 
-def _fetch_json(url: str) -> list[dict]:
-    cached = http_json_cache.get(url)
+def _fetch_json(url: str) -> tuple[list[dict], dict]:
+    cached, hit, cached_at = http_json_cache.get_with_meta(url)
     if isinstance(cached, list):
-        return cached
+        return cached, {"status": "cache", "cache_hit": hit, "fetched_at": cached_at}
 
     try:
         response = requests.get(url, timeout=REQUEST_TIMEOUT_SECONDS)
@@ -37,9 +38,9 @@ def _fetch_json(url: str) -> list[dict]:
         data = response.json()
         rows = data if isinstance(data, list) else []
         http_json_cache.set(url, rows, ttl_seconds=HTTP_JSON_CACHE_TTL_SECONDS)
-        return rows
+        return rows, {"status": "live", "cache_hit": False, "fetched_at": datetime.now(UTC)}
     except (requests.RequestException, ValueError):
-        return []
+        return [], {"status": "unavailable", "cache_hit": None, "fetched_at": datetime.now(UTC)}
 
 
 def _format_duration(delta: timedelta) -> str:
@@ -105,7 +106,7 @@ def get_parking_status(
         "https://data.cityofnewyork.us/resource/nfid-uabd.json"
         f"?$where=within_circle(the_geom, {lat}, {lon}, {radius})&$limit=50"
     )
-    regs_data = _fetch_json(regulations_url)
+    regs_data, regs_freshness = _fetch_json(regulations_url)
 
     for reg in regs_data:
         parsed = parse_regulation_record(reg, now=current_time, vehicle=vehicle_ctx)
@@ -127,25 +128,10 @@ def get_parking_status(
         f"?$where=lat between {min_lat} and {max_lat} and long between {min_lon} and {max_lon}"
         "&$limit=10"
     )
-    meters_data = _fetch_json(meters_url)
+    meters_data, meters_freshness = _fetch_json(meters_url)
 
     for meter in meters_data:
-        meter_status = str(meter.get("status", "")).lower()
-        meter_valid = meter_status == "active"
-        rules.append(
-            ParkingRule(
-                type="metered",
-                description=meter.get("meter_hours", "Pay & Display"),
-                rate="3.50 USD/hour",
-                max_time=meter.get("max_time", "2 hours"),
-                hours=meter.get("hours", "08:00 - 20:00 Mon-Fri"),
-                active_now=meter_valid,
-                severity="low" if meter_valid else "info",
-                valid=meter_valid,
-                reason=None if meter_valid else "Inactive or outside operating hours",
-                source="NYC Parking Meters",
-            )
-        )
+        rules.append(parse_meter_record(meter))
 
     if not rules:
         fallback_eval = evaluate_recurring_window(
@@ -171,42 +157,15 @@ def get_parking_status(
         next_cleaning_dt = rules[0].next_cleaning
         time_left_str = rules[0].time_left
 
-    resolved_hydrant_distance_ft = hydrant_distance_ft
-    hydrant_source = "ParkGuard Hydrant Proximity (demo scaffold)"
-    if resolved_hydrant_distance_ft is None:
-        resolved_hydrant_distance_ft, hydrant_dataset_id = find_nearest_hydrant_distance_ft(
-            lat=lat,
-            lon=lon,
-            search_radius_m=max(radius, 75),
-        )
-        if hydrant_dataset_id:
-            hydrant_source = f"NYC Open Data Hydrants ({hydrant_dataset_id})"
-
-    if resolved_hydrant_distance_ft is not None:
-        hydrant_eval = evaluate_hydrant_clearance(resolved_hydrant_distance_ft, threshold_ft=15.0)
-        rules.append(
-            ParkingRule(
-                type=hydrant_eval.rule_type,
-                description="Fire hydrant clearance rule",
-                distance_ft=hydrant_eval.distance_ft,
-                threshold_ft=hydrant_eval.threshold_ft,
-                severity=hydrant_eval.severity,
-                valid=not hydrant_eval.blocked,
-                reason=hydrant_eval.reason,
-                source=hydrant_source,
-            )
-        )
-    elif gps_accuracy_m >= 10:
-        rules.append(
-            ParkingRule(
-                type="hydrant_uncertain",
-                description="Hydrant proximity uncertain due to GPS accuracy",
-                severity="medium",
-                valid=True,
-                reason=f"Possible hydrant nearby (GPS accuracy ±{gps_accuracy_m:.0f}m). Check manually.",
-                source="ParkGuard GPS Fallback",
-            )
-        )
+    hydrant_rules, hydrant_freshness = build_hydrant_rules(
+        lat=lat,
+        lon=lon,
+        radius=radius,
+        hydrant_distance_ft=hydrant_distance_ft,
+        gps_accuracy_m=gps_accuracy_m,
+        lookup_fn=find_nearest_hydrant_distance_ft,
+    )
+    rules.extend(hydrant_rules)
 
     enriched_rules: list[ParkingRule] = []
     for rule in rules:
@@ -248,6 +207,11 @@ def get_parking_status(
         rules=rules,
         parking_decision=decision,
         violation_summary=violation_summary,
+        data_freshness={
+            "regulations": regs_freshness,
+            "meters": meters_freshness,
+            "hydrants": hydrant_freshness,
+        },
         confidence=0.98 if rules else 0.5,
         warning=warning,
         sources={

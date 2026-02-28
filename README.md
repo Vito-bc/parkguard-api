@@ -48,6 +48,7 @@ High-level response fields:
 - `rules[]`
 - `parking_decision`
 - `violation_summary`
+- `data_freshness`
 - `confidence`
 - `warning`
 
@@ -93,6 +94,8 @@ This enables non-code updates to estimated fine ranges.
 - `main.py` - FastAPI app and endpoint orchestration
 - `sign_parser.py` - parking sign parsing and profile-aware rule conversion
 - `decision_engine.py` - aggregate parking decision scoring (`safe/caution/blocked`)
+- `meter_parser.py` - meter record normalization into parking rules
+- `hydrant_service.py` - hydrant rule assembly and GPS fallback handling
 - `rule_engine.py` - recurring time-window logic
 - `proximity_engine.py` - distance and clearance evaluation
 - `hydrant_lookup.py` - nearest hydrant lookup from NYC Open Data

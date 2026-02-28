@@ -15,10 +15,10 @@ class ParkingStatusApiIntegrationTests(unittest.TestCase):
     def _fake_fetch_json_factory(regs_rows: list[dict], meter_rows: list[dict]):
         def _fake_fetch_json(url: str):
             if "nfid-uabd" in url:
-                return regs_rows
+                return regs_rows, {"status": "mock", "cache_hit": False, "fetched_at": None}
             if "693u-uax6" in url:
-                return meter_rows
-            return []
+                return meter_rows, {"status": "mock", "cache_hit": False, "fetched_at": None}
+            return [], {"status": "mock", "cache_hit": False, "fetched_at": None}
 
         return _fake_fetch_json
 
@@ -37,6 +37,7 @@ class ParkingStatusApiIntegrationTests(unittest.TestCase):
         self.assertEqual(data["parking_decision"]["status"], "blocked")
         self.assertIn("hydrant", data["parking_decision"]["primary_reason"].lower())
         self.assertIn("violation_summary", data)
+        self.assertIn("data_freshness", data)
         self.assertGreaterEqual(data["violation_summary"]["estimated_total_max_usd"], 115)
         hydrant_rules = [r for r in data["rules"] if r["type"] == "hydrant_proximity"]
         self.assertTrue(hydrant_rules)
