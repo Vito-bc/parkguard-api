@@ -104,6 +104,43 @@ class ParkingStatusApiIntegrationTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("text/html", response.headers.get("content-type", ""))
 
+    def test_no_standing_time_window_blocks_when_active(self) -> None:
+        regs = [
+            {
+                "order_type": "no_standing",
+                "sign_desc": "No Standing 8AM-6PM Mon-Fri",
+                "time_from": "00:00",
+                "time_to": "23:59",
+                "days": "daily",
+            }
+        ]
+        with (
+            patch.object(main, "_fetch_json", side_effect=self._fake_fetch_json_factory(regs, [])),
+            patch.object(main, "find_nearest_hydrant_distance_ft", return_value=(None, None)),
+        ):
+            response = self.client.get("/parking-status")
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        no_standing = next(r for r in data["rules"] if r["type"] == "no_standing")
+        self.assertFalse(no_standing["valid"])
+        self.assertTrue(no_standing["active_now"])
+        self.assertEqual(data["parking_decision"]["status"], "blocked")
+
+    def test_gps_inaccuracy_adds_hydrant_uncertain_rule(self) -> None:
+        meters = [{"status": "Active", "meter_hours": "Pay & Display"}]
+        with (
+            patch.object(main, "_fetch_json", side_effect=self._fake_fetch_json_factory([], meters)),
+            patch.object(main, "find_nearest_hydrant_distance_ft", return_value=(None, None)),
+        ):
+            response = self.client.get("/parking-status", params={"gps_accuracy_m": 15})
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        uncertain_rule = next(r for r in data["rules"] if r["type"] == "hydrant_uncertain")
+        self.assertTrue(uncertain_rule["valid"])
+        self.assertIn("Possible hydrant nearby", uncertain_rule["reason"])
+
 
 if __name__ == "__main__":
     unittest.main()

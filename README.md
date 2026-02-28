@@ -9,6 +9,7 @@ ParkGuard evaluates curb rules in real time and returns a vehicle-ready decision
 Most navigation products show distance and routes, but not curb-level risk like:
 - fire hydrant clearance
 - alternate-side cleaning windows
+- no-standing windows (e.g., 8:00-18:00 Mon-Fri)
 - truck/loading-only restrictions
 - taxi/FHV-only zones
 - official vehicle-only zones
@@ -26,6 +27,7 @@ ParkGuard focuses on that last-mile parking intelligence problem as a B2B integr
   - `commercial_plate`
   - `agency_affiliation`: `none | police | fire | city | school`
 - Hydrant proximity checks (auto lookup + manual override)
+- GPS accuracy fallback warning (`hydrant_uncertain`) when hydrant lookup is inconclusive
 - In-memory TTL caching for upstream data calls
 - Integration and unit test coverage
 
@@ -66,6 +68,16 @@ Run tests:
 
 ```bash
 python -m unittest discover -s tests -v
+```
+
+## Deploy (Render)
+
+This repo includes `render.yaml`.
+
+Start command:
+
+```bash
+python -m uvicorn main:app --host 0.0.0.0 --port $PORT
 ```
 
 ## Fine catalog

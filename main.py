@@ -1,6 +1,7 @@
 from datetime import UTC, datetime, timedelta
 from math import cos, radians
 from pathlib import Path
+import re
 
 import requests
 from fastapi import FastAPI, Query
@@ -47,6 +48,40 @@ def _format_duration(delta: timedelta) -> str:
     return f"{hours}h {minutes}m"
 
 
+def _extract_day_spec_from_text(text: str) -> str | None:
+    lower = text.lower()
+    day_tokens = ("mon-fri", "monday-friday", "weekdays", "daily", "weekends", "sat-sun")
+    for token in day_tokens:
+        if token in lower:
+            if token in {"monday-friday", "weekdays"}:
+                return "Mon-Fri"
+            if token == "sat-sun":
+                return "Sat-Sun"
+            return token.title()
+    return None
+
+
+def _extract_time_window_from_text(text: str) -> tuple[str | None, str | None]:
+    pattern = re.compile(
+        r"(\d{1,2})(?::(\d{2}))?\s*(AM|PM)\s*[-–]\s*(\d{1,2})(?::(\d{2}))?\s*(AM|PM)",
+        flags=re.IGNORECASE,
+    )
+    match = pattern.search(text)
+    if not match:
+        return None, None
+
+    def to_24h(hour_str: str, minute_str: str | None, ampm: str) -> str:
+        hour = int(hour_str) % 12
+        if ampm.lower() == "pm":
+            hour += 12
+        minute = int(minute_str) if minute_str else 0
+        return f"{hour:02d}:{minute:02d}"
+
+    start = to_24h(match.group(1), match.group(2), match.group(3))
+    end = to_24h(match.group(4), match.group(5), match.group(6))
+    return start, end
+
+
 def _derive_parking_decision(rules: list[ParkingRule]) -> dict:
     blocked_reasons: list[str] = []
     caution_reasons: list[str] = []
@@ -71,6 +106,11 @@ def _derive_parking_decision(rules: list[ParkingRule]) -> dict:
         if rule.type in {"fire_zone", "emergency_access", "official_vehicle_only", "hydrant_proximity"} and not rule.valid:
             blocked_reasons.append(rule.reason or rule.description)
             risk_score = max(risk_score, 97 if rule.type == "hydrant_proximity" else 94)
+            continue
+
+        if rule.type == "hydrant_uncertain":
+            caution_reasons.append(rule.reason or "Possible hydrant nearby. Check manually.")
+            risk_score = max(risk_score, 55)
             continue
 
         if rule.type in {"no_standing", "no parking"} and not rule.valid:
@@ -146,6 +186,12 @@ def get_parking_status(
         le=200,
         description="Optional nearest hydrant distance override for demo/scaffold",
     ),
+    gps_accuracy_m: float = Query(
+        8.0,
+        ge=1,
+        le=50,
+        description="Estimated GPS accuracy in meters; fallback warnings trigger at >=10m",
+    ),
 ) -> ParkingStatusResponse:
     current_time = datetime.now(UTC)
 
@@ -204,6 +250,45 @@ def get_parking_status(
                 )
             )
             continue
+
+        is_no_standing = rule_type == "no_standing" or "no standing" in description_lower
+        if is_no_standing:
+            start_time = reg.get("time_from")
+            end_time = reg.get("time_to")
+            days_spec = reg.get("days")
+            if not start_time or not end_time:
+                parsed_start, parsed_end = _extract_time_window_from_text(description)
+                start_time = start_time or parsed_start
+                end_time = end_time or parsed_end
+            if not days_spec:
+                days_spec = _extract_day_spec_from_text(description) or "Mon-Fri"
+
+            if start_time and end_time:
+                evaluation = evaluate_recurring_window(
+                    now=current_time,
+                    days_spec=days_spec,
+                    start_time=start_time,
+                    end_time=end_time,
+                )
+                time_left = _format_duration(evaluation.countdown)
+                rules.append(
+                    ParkingRule(
+                        type="no_standing",
+                        description=description,
+                        window=f"{start_time} - {end_time}",
+                        time_left=time_left,
+                        active_now=evaluation.active_now,
+                        severity="high" if evaluation.active_now else "medium",
+                        valid=not evaluation.active_now,
+                        reason=(
+                            f"No standing active now (ends in {time_left})"
+                            if evaluation.active_now
+                            else f"No standing starts in {time_left}"
+                        ),
+                        source="NYC DOT Sign",
+                    )
+                )
+                continue
 
         is_loading_zone = any(
             token in description_lower
@@ -434,6 +519,17 @@ def get_parking_status(
                 valid=not hydrant_eval.blocked,
                 reason=hydrant_eval.reason,
                 source=hydrant_source,
+            )
+        )
+    elif gps_accuracy_m >= 10:
+        rules.append(
+            ParkingRule(
+                type="hydrant_uncertain",
+                description="Hydrant proximity uncertain due to GPS accuracy",
+                severity="medium",
+                valid=True,
+                reason=f"Possible hydrant nearby (GPS accuracy ±{gps_accuracy_m:.0f}m). Check manually.",
+                source="ParkGuard GPS Fallback",
             )
         )
 

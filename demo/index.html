@@ -75,7 +75,7 @@
     }
     .controls {
       display: grid;
-      grid-template-columns: repeat(8, 1fr);
+      grid-template-columns: repeat(9, 1fr);
       gap: 10px;
     }
     .controls input {
@@ -264,6 +264,7 @@
             Commercial plate
           </label>
           <input id="hydrantDistance" type="number" step="0.1" min="0" max="200" placeholder="Hydrant ft (optional)">
+          <input id="gpsAccuracy" type="number" step="1" min="1" max="50" value="8" placeholder="GPS +-m">
           <button id="checkBtn" type="button">Check Spot</button>
         </div>
 
@@ -339,6 +340,23 @@
       return ["safe", "caution", "blocked"].includes(status) ? status : "caution";
     }
 
+    function ruleIcon(type) {
+      const map = {
+        hydrant_proximity: "🚒",
+        hydrant_uncertain: "🚒",
+        fire_zone: "🚒",
+        official_vehicle_only: "🚓",
+        taxi_only: "🚕",
+        fhv_only: "🚕",
+        loading_only: "🚚",
+        truck_loading_only: "🚚",
+        metered: "🅿️",
+        street_cleaning: "🧹",
+        no_standing: "⛔"
+      };
+      return map[type] || "📍";
+    }
+
     function ruleHtml(rule) {
       const sev = rule.severity || "info";
       const metaBits = [];
@@ -355,7 +373,7 @@
       return `
         <div class="rule">
           <div class="rule-top">
-            <div class="rule-type">${(rule.type || "rule").replaceAll("_", " ")}</div>
+            <div class="rule-type">${ruleIcon(rule.type)} ${(rule.type || "rule").replaceAll("_", " ")}</div>
             <div class="sev ${sev}">${sev}</div>
           </div>
           <div class="rule-desc">${rule.description || "No description"}</div>
@@ -409,6 +427,7 @@
       const commercialPlate = el("commercialPlate").checked ? "true" : "false";
       const agencyAffiliation = el("agencyAffiliation").value || "none";
       const hydrantDistance = el("hydrantDistance").value.trim();
+      const gpsAccuracy = el("gpsAccuracy").value || "8";
       el("reasonText").textContent = "Requesting parking decision...";
       try {
         const params = new URLSearchParams({
@@ -417,7 +436,8 @@
           radius,
           vehicle_type: vehicleType,
           commercial_plate: commercialPlate,
-          agency_affiliation: agencyAffiliation
+          agency_affiliation: agencyAffiliation,
+          gps_accuracy_m: gpsAccuracy
         });
         if (hydrantDistance) params.set("hydrant_distance_ft", hydrantDistance);
         const resp = await fetch(`/parking-status?${params.toString()}`);
@@ -444,6 +464,7 @@
     el("agencyAffiliation").addEventListener("change", fetchStatus);
     el("commercialPlate").addEventListener("change", fetchStatus);
     el("hydrantDistance").addEventListener("change", fetchStatus);
+    el("gpsAccuracy").addEventListener("change", fetchStatus);
     updateClock();
     setInterval(updateClock, 1000);
     fetchStatus();
